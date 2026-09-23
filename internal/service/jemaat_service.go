@@ -178,6 +178,18 @@ func (s *JemaatService) GetFilteredPaginated(
 		}
 	}
 
+	if !model.SortBy(sortBy).IsValid() {
+		return nil, &ValidationError{
+			Message: "Invalid sort_by",
+		}
+	}
+
+	if !model.SortOrder(sortOrder).IsValid() {
+		return nil, &ValidationError{
+			Message: "Invalid sort_order",
+		}
+	}
+
 	jemaatList, err := s.JemaatRepository.GetFilteredPaginated(
 		ctx,
 		search,

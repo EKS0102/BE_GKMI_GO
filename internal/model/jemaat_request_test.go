@@ -104,3 +104,101 @@ func TestCreateJemaatRequestValidate(t *testing.T) {
 		})
 	}
 }
+
+func TestSortByIsValid(t *testing.T) {
+	tests := []struct {
+		name   string
+		sortBy SortBy
+		want   bool
+	}{
+		{
+			name:   "id",
+			sortBy: SortByID,
+			want:   true,
+		},
+		{
+			name:   "nama panggilan",
+			sortBy: SortByNamaPanggilan,
+			want:   true,
+		},
+		{
+			name:   "nama lengkap",
+			sortBy: SortByNamaLengkap,
+			want:   true,
+		},
+		{
+			name:   "tanggal lahir",
+			sortBy: SortByTanggalLahir,
+			want:   true,
+		},
+		{
+			name:   "jenis kelamin",
+			sortBy: SortByJenisKelamin,
+			want:   true,
+		},
+		{
+			name:   "status jemaat",
+			sortBy: SortByStatusJemaat,
+			want:   true,
+		},
+		{
+			name:   "status diakonia",
+			sortBy: SortByStatusDiakonia,
+			want:   true,
+		},
+		{
+			name:   "kelompok ibadah",
+			sortBy: SortByKelompokIbadah,
+			want:   true,
+		},
+		{
+			name:   "invalid sort field",
+			sortBy: SortBy("nama_salah"),
+			want:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.sortBy.IsValid()
+
+			if got != tt.want {
+				t.Fatalf("expected %v, got %v", tt.want, got)
+			}
+		})
+	}
+}
+
+func TestSortOrderIsValid(t *testing.T) {
+	tests := []struct {
+		name      string
+		sortOrder SortOrder
+		want      bool
+	}{
+		{
+			name:      "asc",
+			sortOrder: SortOrderAsc,
+			want:      true,
+		},
+		{
+			name:      "desc",
+			sortOrder: SortOrderDesc,
+			want:      true,
+		},
+		{
+			name:      "invalid sort order",
+			sortOrder: SortOrder("random"),
+			want:      false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.sortOrder.IsValid()
+
+			if got != tt.want {
+				t.Fatalf("expected %v, got %v", tt.want, got)
+			}
+		})
+	}
+}

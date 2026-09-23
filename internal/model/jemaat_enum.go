@@ -45,9 +45,34 @@ const (
 	SortByKelompokIbadah SortBy = "kelompok_ibadah"
 )
 
+func (s SortBy) IsValid() bool {
+	switch s {
+	case SortByID,
+		SortByNamaPanggilan,
+		SortByNamaLengkap,
+		SortByTanggalLahir,
+		SortByJenisKelamin,
+		SortByStatusJemaat,
+		SortByStatusDiakonia,
+		SortByKelompokIbadah:
+		return true
+	default:
+		return false
+	}
+}
+
 type SortOrder string
 
 const (
 	SortOrderAsc  SortOrder = "asc"
 	SortOrderDesc SortOrder = "desc"
 )
+
+func (s SortOrder) IsValid() bool {
+	switch s {
+	case SortOrderAsc, SortOrderDesc:
+		return true
+	default:
+		return false
+	}
+}
