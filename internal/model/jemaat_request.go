@@ -22,7 +22,7 @@ func (r CreateJemaatRequest) Validate() string {
 		return "Nama lengkap is required"
 	}
 
-	if !isValidJenisKelamin(r.JenisKelamin) {
+	if !r.JenisKelamin.IsValid() {
 		return "Invalid jenis kelamin"
 	}
 
@@ -34,15 +34,15 @@ func (r CreateJemaatRequest) Validate() string {
 		return "Domisili is required"
 	}
 
-	if !isValidStatusJemaat(r.StatusJemaat) {
+	if !r.StatusJemaat.IsValid() {
 		return "Invalid status jemaat"
 	}
 
-	if !isValidStatusDiakonia(r.StatusDiakonia) {
+	if !r.StatusDiakonia.IsValid() {
 		return "Invalid status diakonia"
 	}
 
-	if !isValidKelompokIbadah(r.KelompokIbadah) {
+	if !r.KelompokIbadah.IsValid() {
 		return "Invalid kelompok ibadah"
 	}
 
@@ -69,7 +69,7 @@ func (r UpdateJemaatRequest) Validate() string {
 		return "Nama lengkap is required"
 	}
 
-	if !isValidJenisKelamin(r.JenisKelamin) {
+	if !r.JenisKelamin.IsValid() {
 		return "Invalid jenis kelamin"
 	}
 
@@ -81,15 +81,15 @@ func (r UpdateJemaatRequest) Validate() string {
 		return "Domisili is required"
 	}
 
-	if !isValidStatusJemaat(r.StatusJemaat) {
+	if !r.StatusJemaat.IsValid() {
 		return "Invalid status jemaat"
 	}
 
-	if !isValidStatusDiakonia(r.StatusDiakonia) {
+	if !r.StatusDiakonia.IsValid() {
 		return "Invalid status diakonia"
 	}
 
-	if !isValidKelompokIbadah(r.KelompokIbadah) {
+	if !r.KelompokIbadah.IsValid() {
 		return "Invalid kelompok ibadah"
 	}
 

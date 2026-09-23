@@ -7,6 +7,15 @@ const (
 	JenisKelaminPerempuan JenisKelamin = "Perempuan"
 )
 
+func (j JenisKelamin) IsValid() bool {
+	switch j {
+	case JenisKelaminLakiLaki, JenisKelaminPerempuan:
+		return true
+	default:
+		return false
+	}
+}
+
 type StatusJemaat string
 
 const (
@@ -15,12 +24,32 @@ const (
 	StatusJemaatTamu       StatusJemaat = "Tamu"
 )
 
+func (s StatusJemaat) IsValid() bool {
+	switch s {
+	case StatusJemaatJemaat,
+		StatusJemaatSimpatisan,
+		StatusJemaatTamu:
+		return true
+	default:
+		return false
+	}
+}
+
 type StatusDiakonia string
 
 const (
 	StatusDiakoniaYa    StatusDiakonia = "Ya"
 	StatusDiakoniaTidak StatusDiakonia = "Tidak"
 )
+
+func (s StatusDiakonia) IsValid() bool {
+	switch s {
+	case StatusDiakoniaYa, StatusDiakoniaTidak:
+		return true
+	default:
+		return false
+	}
+}
 
 type KelompokIbadah string
 
@@ -31,6 +60,19 @@ const (
 	KelompokIbadahKoper         KelompokIbadah = "Koper"
 	KelompokIbadahLansia        KelompokIbadah = "Lansia"
 )
+
+func (k KelompokIbadah) IsValid() bool {
+	switch k {
+	case KelompokIbadahSekolahMinggu,
+		KelompokIbadahYouth,
+		KelompokIbadahKompak,
+		KelompokIbadahKoper,
+		KelompokIbadahLansia:
+		return true
+	default:
+		return false
+	}
+}
 
 type SortBy string
 

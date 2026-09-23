@@ -190,6 +190,29 @@ func (s *JemaatService) GetFilteredPaginated(
 		}
 	}
 
+	if jenisKelamin != "" && !model.JenisKelamin(jenisKelamin).IsValid() {
+		return nil, &ValidationError{
+			Message: "Invalid jenis_kelamin",
+		}
+	}
+
+	if statusJemaat != "" && !model.StatusJemaat(statusJemaat).IsValid() {
+		return nil, &ValidationError{
+			Message: "Invalid status_jemaat",
+		}
+	}
+
+	if statusDiakonia != "" && !model.StatusDiakonia(statusDiakonia).IsValid() {
+		return nil, &ValidationError{
+			Message: "Invalid status_diakonia",
+		}
+	}
+
+	if kelompokIbadah != "" && !model.KelompokIbadah(kelompokIbadah).IsValid() {
+		return nil, &ValidationError{
+			Message: "Invalid kelompok_ibadah",
+		}
+	}
 	jemaatList, err := s.JemaatRepository.GetFilteredPaginated(
 		ctx,
 		search,
