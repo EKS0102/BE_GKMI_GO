@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"BE_GKMI_NTC_GO/internal/model"
 	"BE_GKMI_NTC_GO/internal/repository"
@@ -26,6 +27,58 @@ func (s *JemaatService) GetAll(
 	ctx context.Context,
 ) ([]model.Jemaat, error) {
 	return s.JemaatRepository.GetAll(ctx)
+}
+
+func (s *JemaatService) GetPaginated(
+	ctx context.Context,
+	page int,
+	limit int,
+) (*model.JemaatPaginationResponse, error) {
+	if page < 1 {
+		return nil, &ValidationError{
+			Message: "Page must be greater than 0",
+		}
+	}
+
+	if limit < 1 {
+		return nil, &ValidationError{
+			Message: "Limit must be greater than 0",
+		}
+	}
+
+	if limit > 100 {
+		return nil, &ValidationError{
+			Message: "Limit must not exceed 100",
+		}
+	}
+
+	jemaatList, err := s.JemaatRepository.GetPaginated(
+		ctx,
+		page,
+		limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	total, err := s.JemaatRepository.Count(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	totalPages := 0
+
+	if total > 0 {
+		totalPages = (total + limit - 1) / limit
+	}
+
+	return &model.JemaatPaginationResponse{
+		Items:      jemaatList,
+		Page:       page,
+		Limit:      limit,
+		Total:      total,
+		TotalPages: totalPages,
+	}, nil
 }
 
 func (s *JemaatService) Create(
@@ -126,4 +179,18 @@ type NotFoundError struct {
 
 func (e *NotFoundError) Error() string {
 	return e.Message
+}
+
+func NewValidationError(message string) error {
+	return &ValidationError{
+		Message: message,
+	}
+}
+
+func ValidationErrorMessage(err error) string {
+	if validationErr, ok := err.(*ValidationError); ok {
+		return validationErr.Message
+	}
+
+	return fmt.Sprintf("%v", err)
 }

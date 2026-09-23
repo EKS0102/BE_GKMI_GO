@@ -19,8 +19,72 @@ func Jemaat(
 		switch r.Method {
 
 		case http.MethodGet:
-			jemaatList, err := jemaatService.GetAll(r.Context())
+			pageStr := r.URL.Query().Get("page")
+			limitStr := r.URL.Query().Get("limit")
+
+			if pageStr == "" && limitStr == "" {
+				jemaatList, err := jemaatService.GetAll(r.Context())
+				if err != nil {
+					response.Error(
+						w,
+						http.StatusInternalServerError,
+						"Failed to get jemaat",
+					)
+					return
+				}
+
+				_ = response.JSON(
+					w,
+					http.StatusOK,
+					jemaatList,
+				)
+				return
+			}
+
+			page := 1
+			limit := 10
+
+			var err error
+
+			if pageStr != "" {
+				page, err = strconv.Atoi(pageStr)
+				if err != nil {
+					response.Error(
+						w,
+						http.StatusBadRequest,
+						"Invalid page",
+					)
+					return
+				}
+			}
+
+			if limitStr != "" {
+				limit, err = strconv.Atoi(limitStr)
+				if err != nil {
+					response.Error(
+						w,
+						http.StatusBadRequest,
+						"Invalid limit",
+					)
+					return
+				}
+			}
+
+			result, err := jemaatService.GetPaginated(
+				r.Context(),
+				page,
+				limit,
+			)
 			if err != nil {
+				if validationErr, ok := err.(*service.ValidationError); ok {
+					response.Error(
+						w,
+						http.StatusBadRequest,
+						validationErr.Message,
+					)
+					return
+				}
+
 				response.Error(
 					w,
 					http.StatusInternalServerError,
@@ -32,7 +96,7 @@ func Jemaat(
 			_ = response.JSON(
 				w,
 				http.StatusOK,
-				jemaatList,
+				result,
 			)
 
 		case http.MethodPost:

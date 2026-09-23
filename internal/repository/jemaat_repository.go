@@ -68,6 +68,84 @@ ORDER BY id
 	return jemaatList, nil
 }
 
+func (r *JemaatRepository) GetPaginated(
+	ctx context.Context,
+	page int,
+	limit int,
+) ([]model.Jemaat, error) {
+	offset := (page - 1) * limit
+
+	rows, err := r.DB.Query(ctx, `
+SELECT
+id,
+nama_panggilan,
+nama_lengkap,
+jenis_kelamin,
+tanggal_lahir,
+domisili,
+status_jemaat,
+status_diakonia,
+kelompok_ibadah
+FROM jemaat
+ORDER BY id
+LIMIT $1
+OFFSET $2
+`,
+		limit,
+		offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	jemaatList := make([]model.Jemaat, 0)
+
+	for rows.Next() {
+		var jemaat model.Jemaat
+
+		err := rows.Scan(
+			&jemaat.ID,
+			&jemaat.NamaPanggilan,
+			&jemaat.NamaLengkap,
+			&jemaat.JenisKelamin,
+			&jemaat.TanggalLahir,
+			&jemaat.Domisili,
+			&jemaat.StatusJemaat,
+			&jemaat.StatusDiakonia,
+			&jemaat.KelompokIbadah,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		jemaatList = append(jemaatList, jemaat)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return jemaatList, nil
+}
+
+func (r *JemaatRepository) Count(
+	ctx context.Context,
+) (int, error) {
+	var total int
+
+	err := r.DB.QueryRow(ctx, `
+SELECT COUNT(*)
+FROM jemaat
+`).Scan(&total)
+
+	if err != nil {
+		return 0, err
+	}
+
+	return total, nil
+}
+
 func (r *JemaatRepository) Create(
 	ctx context.Context,
 	jemaat *model.Jemaat,
