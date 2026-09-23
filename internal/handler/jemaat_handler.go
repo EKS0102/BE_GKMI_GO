@@ -21,11 +21,19 @@ func Jemaat(
 		case http.MethodGet:
 			jemaatList, err := jemaatService.GetAll(r.Context())
 			if err != nil {
-				response.Error(w, http.StatusInternalServerError, "Failed to get jemaat")
+				response.Error(
+					w,
+					http.StatusInternalServerError,
+					"Failed to get jemaat",
+				)
 				return
 			}
 
-			_ = response.JSON(w, http.StatusOK, jemaatList)
+			_ = response.JSON(
+				w,
+				http.StatusOK,
+				jemaatList,
+			)
 
 		case http.MethodPost:
 			var request model.CreateJemaatRequest
@@ -73,7 +81,11 @@ func Jemaat(
 
 			id, err := strconv.Atoi(idStr)
 			if err != nil {
-				response.Error(w, http.StatusBadRequest, "Invalid jemaat ID")
+				response.Error(
+					w,
+					http.StatusBadRequest,
+					"Invalid jemaat ID",
+				)
 				return
 			}
 
@@ -81,7 +93,11 @@ func Jemaat(
 
 			err = json.NewDecoder(r.Body).Decode(&request)
 			if err != nil {
-				response.Error(w, http.StatusBadRequest, "Invalid request body")
+				response.Error(
+					w,
+					http.StatusBadRequest,
+					"Invalid request body",
+				)
 				return
 			}
 
@@ -96,6 +112,15 @@ func Jemaat(
 						w,
 						http.StatusBadRequest,
 						validationErr.Message,
+					)
+					return
+				}
+
+				if notFoundErr, ok := err.(*service.NotFoundError); ok {
+					response.Error(
+						w,
+						http.StatusNotFound,
+						notFoundErr.Message,
 					)
 					return
 				}
@@ -119,12 +144,28 @@ func Jemaat(
 
 			id, err := strconv.Atoi(idStr)
 			if err != nil {
-				response.Error(w, http.StatusBadRequest, "Invalid jemaat ID")
+				response.Error(
+					w,
+					http.StatusBadRequest,
+					"Invalid jemaat ID",
+				)
 				return
 			}
 
-			err = jemaatService.Delete(r.Context(), id)
+			err = jemaatService.Delete(
+				r.Context(),
+				id,
+			)
 			if err != nil {
+				if notFoundErr, ok := err.(*service.NotFoundError); ok {
+					response.Error(
+						w,
+						http.StatusNotFound,
+						notFoundErr.Message,
+					)
+					return
+				}
+
 				response.Error(
 					w,
 					http.StatusInternalServerError,

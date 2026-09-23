@@ -2,9 +2,12 @@ package service
 
 import (
 	"context"
+	"errors"
 
 	"BE_GKMI_NTC_GO/internal/model"
 	"BE_GKMI_NTC_GO/internal/repository"
+
+	"github.com/jackc/pgx/v5"
 )
 
 type JemaatService struct {
@@ -79,6 +82,12 @@ func (s *JemaatService) Update(
 
 	err := s.JemaatRepository.Update(ctx, jemaat)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, &NotFoundError{
+				Message: "Jemaat not found",
+			}
+		}
+
 		return nil, err
 	}
 
@@ -89,7 +98,18 @@ func (s *JemaatService) Delete(
 	ctx context.Context,
 	id int,
 ) error {
-	return s.JemaatRepository.Delete(ctx, id)
+	err := s.JemaatRepository.Delete(ctx, id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return &NotFoundError{
+				Message: "Jemaat not found",
+			}
+		}
+
+		return err
+	}
+
+	return nil
 }
 
 type ValidationError struct {
@@ -97,5 +117,13 @@ type ValidationError struct {
 }
 
 func (e *ValidationError) Error() string {
+	return e.Message
+}
+
+type NotFoundError struct {
+	Message string
+}
+
+func (e *NotFoundError) Error() string {
 	return e.Message
 }

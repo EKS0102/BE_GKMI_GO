@@ -20,19 +20,19 @@ func NewJemaatRepository(db *pgx.Conn) *JemaatRepository {
 
 func (r *JemaatRepository) GetAll(ctx context.Context) ([]model.Jemaat, error) {
 	rows, err := r.DB.Query(ctx, `
-		SELECT
-			id,
-			nama_panggilan,
-			nama_lengkap,
-			jenis_kelamin,
-			tanggal_lahir,
-			domisili,
-			status_jemaat,
-			status_diakonia,
-			kelompok_ibadah
-		FROM jemaat
-		ORDER BY id
-	`)
+SELECT
+id,
+nama_panggilan,
+nama_lengkap,
+jenis_kelamin,
+tanggal_lahir,
+domisili,
+status_jemaat,
+status_diakonia,
+kelompok_ibadah
+FROM jemaat
+ORDER BY id
+`)
 	if err != nil {
 		return nil, err
 	}
@@ -73,21 +73,21 @@ func (r *JemaatRepository) Create(
 	jemaat *model.Jemaat,
 ) error {
 	err := r.DB.QueryRow(ctx, `
-		INSERT INTO jemaat (
-			nama_panggilan,
-			nama_lengkap,
-			jenis_kelamin,
-			tanggal_lahir,
-			domisili,
-			status_jemaat,
-			status_diakonia,
-			kelompok_ibadah
-		)
-		VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8
-		)
-		RETURNING id
-	`,
+INSERT INTO jemaat (
+nama_panggilan,
+nama_lengkap,
+jenis_kelamin,
+tanggal_lahir,
+domisili,
+status_jemaat,
+status_diakonia,
+kelompok_ibadah
+)
+VALUES (
+$1, $2, $3, $4, $5, $6, $7, $8
+)
+RETURNING id
+`,
 		jemaat.NamaPanggilan,
 		jemaat.NamaLengkap,
 		jemaat.JenisKelamin,
@@ -105,19 +105,19 @@ func (r *JemaatRepository) Update(
 	ctx context.Context,
 	jemaat *model.Jemaat,
 ) error {
-	_, err := r.DB.Exec(ctx, `
-        UPDATE jemaat
-        SET
-            nama_panggilan = $1,
-            nama_lengkap = $2,
-            jenis_kelamin = $3,
-            tanggal_lahir = $4,
-            domisili = $5,
-            status_jemaat = $6,
-            status_diakonia = $7,
-            kelompok_ibadah = $8
-        WHERE id = $9
-    `,
+	result, err := r.DB.Exec(ctx, `
+UPDATE jemaat
+SET
+nama_panggilan = $1,
+nama_lengkap = $2,
+jenis_kelamin = $3,
+tanggal_lahir = $4,
+domisili = $5,
+status_jemaat = $6,
+status_diakonia = $7,
+kelompok_ibadah = $8
+WHERE id = $9
+`,
 		jemaat.NamaPanggilan,
 		jemaat.NamaLengkap,
 		jemaat.JenisKelamin,
@@ -128,18 +128,32 @@ func (r *JemaatRepository) Update(
 		jemaat.KelompokIbadah,
 		jemaat.ID,
 	)
+	if err != nil {
+		return err
+	}
 
-	return err
+	if result.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+
+	return nil
 }
 
 func (r *JemaatRepository) Delete(
 	ctx context.Context,
 	id int,
 ) error {
-	_, err := r.DB.Exec(ctx, `
-        DELETE FROM jemaat
-        WHERE id = $1
-    `, id)
+	result, err := r.DB.Exec(ctx, `
+DELETE FROM jemaat
+WHERE id = $1
+`, id)
+	if err != nil {
+		return err
+	}
 
-	return err
+	if result.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+
+	return nil
 }
