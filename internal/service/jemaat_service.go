@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"BE_GKMI_NTC_GO/internal/model"
@@ -81,13 +80,76 @@ func (s *JemaatService) GetPaginated(
 	}, nil
 }
 
+func (s *JemaatService) SearchPaginated(
+	ctx context.Context,
+	search string,
+	page int,
+	limit int,
+) (*model.JemaatPaginationResponse, error) {
+	if search == "" {
+		return nil, &ValidationError{
+			Message: "Search is required",
+		}
+	}
+
+	if page < 1 {
+		return nil, &ValidationError{
+			Message: "Page must be greater than 0",
+		}
+	}
+
+	if limit < 1 {
+		return nil, &ValidationError{
+			Message: "Limit must be greater than 0",
+		}
+	}
+
+	if limit > 100 {
+		return nil, &ValidationError{
+			Message: "Limit must not exceed 100",
+		}
+	}
+
+	jemaatList, err := s.JemaatRepository.SearchPaginated(
+		ctx,
+		search,
+		page,
+		limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	total, err := s.JemaatRepository.CountSearch(
+		ctx,
+		search,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	totalPages := 0
+
+	if total > 0 {
+		totalPages = (total + limit - 1) / limit
+	}
+
+	return &model.JemaatPaginationResponse{
+		Items:      jemaatList,
+		Page:       page,
+		Limit:      limit,
+		Total:      total,
+		TotalPages: totalPages,
+	}, nil
+}
+
 func (s *JemaatService) Create(
 	ctx context.Context,
 	request model.CreateJemaatRequest,
 ) (*model.Jemaat, error) {
-	if errMessage := request.Validate(); errMessage != "" {
+	if message := request.Validate(); message != "" {
 		return nil, &ValidationError{
-			Message: errMessage,
+			Message: message,
 		}
 	}
 
@@ -102,7 +164,10 @@ func (s *JemaatService) Create(
 		KelompokIbadah: request.KelompokIbadah,
 	}
 
-	err := s.JemaatRepository.Create(ctx, jemaat)
+	err := s.JemaatRepository.Create(
+		ctx,
+		jemaat,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -115,9 +180,9 @@ func (s *JemaatService) Update(
 	id int,
 	request model.UpdateJemaatRequest,
 ) (*model.Jemaat, error) {
-	if errMessage := request.Validate(); errMessage != "" {
+	if message := request.Validate(); message != "" {
 		return nil, &ValidationError{
-			Message: errMessage,
+			Message: message,
 		}
 	}
 
@@ -133,9 +198,12 @@ func (s *JemaatService) Update(
 		KelompokIbadah: request.KelompokIbadah,
 	}
 
-	err := s.JemaatRepository.Update(ctx, jemaat)
+	err := s.JemaatRepository.Update(
+		ctx,
+		jemaat,
+	)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if err == pgx.ErrNoRows {
 			return nil, &NotFoundError{
 				Message: "Jemaat not found",
 			}
@@ -151,9 +219,12 @@ func (s *JemaatService) Delete(
 	ctx context.Context,
 	id int,
 ) error {
-	err := s.JemaatRepository.Delete(ctx, id)
+	err := s.JemaatRepository.Delete(
+		ctx,
+		id,
+	)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if err == pgx.ErrNoRows {
 			return &NotFoundError{
 				Message: "Jemaat not found",
 			}

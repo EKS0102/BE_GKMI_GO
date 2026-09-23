@@ -13,9 +13,7 @@ type JemaatRepository struct {
 }
 
 func NewJemaatRepository(db *pgx.Conn) *JemaatRepository {
-	return &JemaatRepository{
-		DB: db,
-	}
+	return &JemaatRepository{DB: db}
 }
 
 func (r *JemaatRepository) GetAll(ctx context.Context) ([]model.Jemaat, error) {
@@ -90,7 +88,85 @@ FROM jemaat
 ORDER BY id
 LIMIT $1
 OFFSET $2
+`, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	jemaatList := make([]model.Jemaat, 0)
+
+	for rows.Next() {
+		var jemaat model.Jemaat
+
+		err := rows.Scan(
+			&jemaat.ID,
+			&jemaat.NamaPanggilan,
+			&jemaat.NamaLengkap,
+			&jemaat.JenisKelamin,
+			&jemaat.TanggalLahir,
+			&jemaat.Domisili,
+			&jemaat.StatusJemaat,
+			&jemaat.StatusDiakonia,
+			&jemaat.KelompokIbadah,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		jemaatList = append(jemaatList, jemaat)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return jemaatList, nil
+}
+
+func (r *JemaatRepository) Count(ctx context.Context) (int, error) {
+	var total int
+
+	err := r.DB.QueryRow(
+		ctx,
+		`SELECT COUNT(*) FROM jemaat`,
+	).Scan(&total)
+
+	if err != nil {
+		return 0, err
+	}
+
+	return total, nil
+}
+
+func (r *JemaatRepository) SearchPaginated(
+	ctx context.Context,
+	search string,
+	page int,
+	limit int,
+) ([]model.Jemaat, error) {
+	offset := (page - 1) * limit
+
+	rows, err := r.DB.Query(ctx, `
+SELECT
+id,
+nama_panggilan,
+nama_lengkap,
+jenis_kelamin,
+tanggal_lahir,
+domisili,
+status_jemaat,
+status_diakonia,
+kelompok_ibadah
+FROM jemaat
+WHERE
+nama_panggilan ILIKE $1
+OR nama_lengkap ILIKE $1
+ORDER BY id
+LIMIT $2
+OFFSET $3
 `,
+		"%"+search+"%",
 		limit,
 		offset,
 	)
@@ -129,15 +205,21 @@ OFFSET $2
 	return jemaatList, nil
 }
 
-func (r *JemaatRepository) Count(
+func (r *JemaatRepository) CountSearch(
 	ctx context.Context,
+	search string,
 ) (int, error) {
 	var total int
 
 	err := r.DB.QueryRow(ctx, `
 SELECT COUNT(*)
 FROM jemaat
-`).Scan(&total)
+WHERE
+nama_panggilan ILIKE $1
+OR nama_lengkap ILIKE $1
+`,
+		"%"+search+"%",
+	).Scan(&total)
 
 	if err != nil {
 		return 0, err
@@ -161,9 +243,7 @@ status_jemaat,
 status_diakonia,
 kelompok_ibadah
 )
-VALUES (
-$1, $2, $3, $4, $5, $6, $7, $8
-)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 RETURNING id
 `,
 		jemaat.NamaPanggilan,
