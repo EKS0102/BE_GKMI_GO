@@ -1,0 +1,106 @@
+package model
+
+import (
+	"testing"
+	"time"
+)
+
+func validJemaatRequest() CreateJemaatRequest {
+	return CreateJemaatRequest{
+		NamaPanggilan:  "Budi",
+		NamaLengkap:    "Budi Santoso",
+		JenisKelamin:   JenisKelaminLakiLaki,
+		TanggalLahir:   time.Date(2000, 5, 15, 0, 0, 0, 0, time.UTC),
+		Domisili:       "Salatiga",
+		StatusJemaat:   StatusJemaatJemaat,
+		StatusDiakonia: StatusDiakoniaYa,
+		KelompokIbadah: KelompokIbadahYouth,
+	}
+}
+
+func TestCreateJemaatRequestValidate(t *testing.T) {
+	tests := []struct {
+		name    string
+		request CreateJemaatRequest
+		want    string
+	}{
+		{
+			name:    "valid request",
+			request: validJemaatRequest(),
+			want:    "",
+		},
+		{
+			name: "nama panggilan required",
+			request: func() CreateJemaatRequest {
+				r := validJemaatRequest()
+				r.NamaPanggilan = ""
+				return r
+			}(),
+			want: "Nama panggilan is required",
+		},
+		{
+			name: "nama lengkap required",
+			request: func() CreateJemaatRequest {
+				r := validJemaatRequest()
+				r.NamaLengkap = ""
+				return r
+			}(),
+			want: "Nama lengkap is required",
+		},
+		{
+			name: "invalid jenis kelamin",
+			request: func() CreateJemaatRequest {
+				r := validJemaatRequest()
+				r.JenisKelamin = "Tidak Valid"
+				return r
+			}(),
+			want: "Invalid jenis kelamin",
+		},
+		{
+			name: "tanggal lahir required",
+			request: func() CreateJemaatRequest {
+				r := validJemaatRequest()
+				r.TanggalLahir = time.Time{}
+				return r
+			}(),
+			want: "Tanggal lahir is required",
+		},
+		{
+			name: "invalid status jemaat",
+			request: func() CreateJemaatRequest {
+				r := validJemaatRequest()
+				r.StatusJemaat = "Tidak Valid"
+				return r
+			}(),
+			want: "Invalid status jemaat",
+		},
+		{
+			name: "invalid status diakonia",
+			request: func() CreateJemaatRequest {
+				r := validJemaatRequest()
+				r.StatusDiakonia = "Tidak Valid"
+				return r
+			}(),
+			want: "Invalid status diakonia",
+		},
+		{
+			name: "invalid kelompok ibadah",
+			request: func() CreateJemaatRequest {
+				r := validJemaatRequest()
+				r.KelompokIbadah = "Tidak Valid"
+				return r
+			}(),
+			want: "Invalid kelompok ibadah",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.request.Validate()
+
+			if got != tt.want {
+				t.Fatalf("expected %q, got %q", tt.want, got)
+			}
+		})
+	}
+}
