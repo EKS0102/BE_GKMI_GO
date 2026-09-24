@@ -14,7 +14,7 @@ import (
 
 func Jemaat(
 	jemaatRepository *repository.JemaatRepository,
-	jemaatService *service.JemaatService,
+	jemaatService JemaatServiceInterface,
 ) http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
