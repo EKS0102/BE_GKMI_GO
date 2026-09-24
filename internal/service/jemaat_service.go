@@ -11,11 +11,11 @@ import (
 )
 
 type JemaatService struct {
-	JemaatRepository *repository.JemaatRepository
+	JemaatRepository repository.JemaatRepositoryInterface
 }
 
 func NewJemaatService(
-	jemaatRepository *repository.JemaatRepository,
+	jemaatRepository repository.JemaatRepositoryInterface,
 ) *JemaatService {
 	return &JemaatService{
 		JemaatRepository: jemaatRepository,
