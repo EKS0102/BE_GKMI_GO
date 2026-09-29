@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -40,6 +41,17 @@ type fakeJemaatService struct {
 	updateRequest             model.UpdateJemaatRequest
 	deleteErr                 error
 	deleteID                  int
+	bulkResult                []model.Jemaat
+	bulkErr                   error
+	bulkRequests              []model.Jemaat
+	getByIDResult             *model.Jemaat
+	getByIDErr                error
+	getByID                   int
+}
+
+func (f *fakeJemaatService) GetByID(_ context.Context, id int) (*model.Jemaat, error) {
+	f.getByID = id
+	return f.getByIDResult, f.getByIDErr
 }
 
 func (f *fakeJemaatService) GetAll(_ context.Context) ([]model.Jemaat, error) {
@@ -76,6 +88,10 @@ func (f *fakeJemaatService) Update(_ context.Context, id int, request model.Upda
 	return f.updateResult, f.updateErr
 }
 
+func (f *fakeJemaatService) BulkCreate(_ context.Context, jemaatList []model.Jemaat) ([]model.Jemaat, error) {
+	f.bulkRequests = jemaatList
+	return f.bulkResult, f.bulkErr
+}
 func (f *fakeJemaatService) Delete(_ context.Context, id int) error {
 	f.deleteID = id
 	return f.deleteErr
@@ -396,5 +412,164 @@ func TestJemaatMethodNotAllowed(t *testing.T) {
 	handler(recorder, request)
 	if recorder.Code != http.StatusMethodNotAllowed {
 		t.Fatalf("expected status 405, got %d", recorder.Code)
+	}
+}
+
+func TestJemaatBulkPost(t *testing.T) {
+	fakeService := &fakeJemaatService{bulkResult: []model.Jemaat{{ID: 14, NamaPanggilan: "Eko", NamaLengkap: "Eko Siswanto"}, {ID: 15, NamaPanggilan: "Budi", NamaLengkap: "Budi Santoso"}}}
+	handler := Jemaat(nil, fakeService)
+	body := `[{"nama_panggilan":"Eko","nama_lengkap":"Eko Siswanto","jenis_kelamin":"Laki-Laki","tanggal_lahir":"1994-01-15T00:00:00Z","domisili":"Cikarang","status_jemaat":"Jemaat","status_diakonia":"Tidak","kelompok_ibadah":"Youth"},{"nama_panggilan":"Budi","nama_lengkap":"Budi Santoso","jenis_kelamin":"Laki-Laki","tanggal_lahir":"1990-02-10T00:00:00Z","domisili":"Bekasi","status_jemaat":"Jemaat","status_diakonia":"Tidak","kelompok_ibadah":"Umum"}]`
+	request := httptest.NewRequest(http.MethodPost, "/api/jemaat/bulk", strings.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	handler(recorder, request)
+	if recorder.Code != http.StatusCreated {
+		t.Fatalf("expected status 201, got %d", recorder.Code)
+	}
+	if len(fakeService.bulkRequests) != 2 {
+		t.Fatalf("expected 2 bulk requests, got %d", len(fakeService.bulkRequests))
+	}
+	if fakeService.bulkRequests[0].NamaLengkap != "Eko Siswanto" {
+		t.Fatalf("expected Eko Siswanto, got %s", fakeService.bulkRequests[0].NamaLengkap)
+	}
+}
+
+func TestJemaatBulkPostInvalidJSON(t *testing.T) {
+	fakeService := &fakeJemaatService{}
+	handler := Jemaat(nil, fakeService)
+	request := httptest.NewRequest(http.MethodPost, "/api/jemaat/bulk", strings.NewReader(`[{"nama_panggilan":`))
+	recorder := httptest.NewRecorder()
+	handler(recorder, request)
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400, got %d", recorder.Code)
+	}
+}
+
+func TestJemaatBulkPostEmpty(t *testing.T) {
+	fakeService := &fakeJemaatService{}
+	handler := Jemaat(nil, fakeService)
+	request := httptest.NewRequest(http.MethodPost, "/api/jemaat/bulk", strings.NewReader(`[]`))
+	recorder := httptest.NewRecorder()
+	handler(recorder, request)
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400, got %d", recorder.Code)
+	}
+}
+
+func TestJemaatBulkPostServiceError(t *testing.T) {
+	fakeService := &fakeJemaatService{bulkErr: errors.New("database error")}
+	handler := Jemaat(nil, fakeService)
+	body := `[{"nama_panggilan":"Eko","nama_lengkap":"Eko Siswanto","jenis_kelamin":"Laki-Laki","tanggal_lahir":"1994-01-15T00:00:00Z","domisili":"Cikarang","status_jemaat":"Jemaat","status_diakonia":"Tidak","kelompok_ibadah":"Youth"}]`
+	request := httptest.NewRequest(http.MethodPost, "/api/jemaat/bulk", strings.NewReader(body))
+	recorder := httptest.NewRecorder()
+	handler(recorder, request)
+	if recorder.Code != http.StatusInternalServerError {
+		t.Fatalf("expected status 500, got %d", recorder.Code)
+	}
+}
+
+func TestJemaatBulkPostValidationError(t *testing.T) {
+	fakeService := &fakeJemaatService{bulkErr: &service.ValidationError{Message: "Nama lengkap is required"}}
+	handler := Jemaat(nil, fakeService)
+	body := `[{"nama_panggilan":"Eko","nama_lengkap":"","jenis_kelamin":"Laki-Laki","tanggal_lahir":"1994-01-15T00:00:00Z","domisili":"Cikarang","status_jemaat":"Jemaat","status_diakonia":"Tidak","kelompok_ibadah":"Youth"}]`
+	request := httptest.NewRequest(http.MethodPost, "/api/jemaat/bulk", strings.NewReader(body))
+	recorder := httptest.NewRecorder()
+	handler(recorder, request)
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400, got %d", recorder.Code)
+	}
+}
+
+func TestGetJemaatByID(t *testing.T) {
+	expected := &model.Jemaat{ID: 15, NamaPanggilan: "Bulk Budi", NamaLengkap: "Bulk Budi Santoso"}
+	fakeService := &fakeJemaatService{getByIDResult: expected}
+	handler := GetJemaatByID(fakeService)
+	request := httptest.NewRequest(http.MethodGet, "/api/jemaat/15", nil)
+	recorder := httptest.NewRecorder()
+
+	handler(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", recorder.Code)
+	}
+	if fakeService.getByID != 15 {
+		t.Fatalf("expected ID 15, got %d", fakeService.getByID)
+	}
+
+	var result model.Jemaat
+	if err := json.NewDecoder(recorder.Body).Decode(&result); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if result.ID != 15 || result.NamaPanggilan != "Bulk Budi" {
+		t.Fatalf("unexpected result: %+v", result)
+	}
+}
+
+func TestGetJemaatByIDInvalidID(t *testing.T) {
+	fakeService := &fakeJemaatService{}
+	handler := GetJemaatByID(fakeService)
+	request := httptest.NewRequest(http.MethodGet, "/api/jemaat/abc", nil)
+	recorder := httptest.NewRecorder()
+
+	handler(recorder, request)
+
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400, got %d", recorder.Code)
+	}
+}
+
+func TestGetJemaatByIDNotFound(t *testing.T) {
+	fakeService := &fakeJemaatService{getByIDErr: errors.New("jemaat not found")}
+	handler := GetJemaatByID(fakeService)
+	request := httptest.NewRequest(http.MethodGet, "/api/jemaat/99999", nil)
+	recorder := httptest.NewRecorder()
+
+	handler(recorder, request)
+
+	if recorder.Code != http.StatusNotFound {
+		t.Fatalf("expected status 404, got %d", recorder.Code)
+	}
+}
+
+func TestGetJemaatByIDServiceError(t *testing.T) {
+	fakeService := &fakeJemaatService{getByIDErr: errors.New("database error")}
+	handler := GetJemaatByID(fakeService)
+	request := httptest.NewRequest(http.MethodGet, "/api/jemaat/15", nil)
+	recorder := httptest.NewRecorder()
+
+	handler(recorder, request)
+
+	if recorder.Code != http.StatusInternalServerError {
+		t.Fatalf("expected status 500, got %d", recorder.Code)
+	}
+}
+
+func TestDeleteJemaat(t *testing.T) {
+	fake := &fakeJemaatService{}
+	req := httptest.NewRequest(http.MethodDelete, "/api/jemaat/15", nil)
+	rec := httptest.NewRecorder()
+	Jemaat(nil, fake)(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", rec.Code)
+	}
+}
+
+func TestDeleteJemaatNotFound(t *testing.T) {
+	fake := &fakeJemaatService{deleteErr: fmt.Errorf("jemaat not found")}
+	req := httptest.NewRequest(http.MethodDelete, "/api/jemaat/999999", nil)
+	rec := httptest.NewRecorder()
+	Jemaat(nil, fake)(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected status 404, got %d", rec.Code)
+	}
+}
+
+func TestDeleteJemaatServiceError(t *testing.T) {
+	fake := &fakeJemaatService{deleteErr: fmt.Errorf("database error")}
+	req := httptest.NewRequest(http.MethodDelete, "/api/jemaat/15", nil)
+	rec := httptest.NewRecorder()
+	Jemaat(nil, fake)(rec, req)
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("expected status 500, got %d", rec.Code)
 	}
 }

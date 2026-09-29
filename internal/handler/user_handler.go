@@ -16,6 +16,20 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
+// Users godoc
+// @Summary List and create users
+// @Description Get all users or create a new user
+// @Tags Users
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {array} model.User
+// @Success 201 {object} model.User
+// @Failure 400 {object} map[string]string
+// @Failure 409 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/users [get]
+// @Router /api/users [post]
 func Users(userRepository *repository.UserRepository) http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -110,7 +124,6 @@ func Users(userRepository *repository.UserRepository) http.HandlerFunc {
 				return
 			}
 
-			// Jangan kirim password_hash ke client.
 			user.PasswordHash = ""
 
 			_ = response.JSON(
@@ -130,6 +143,22 @@ func Users(userRepository *repository.UserRepository) http.HandlerFunc {
 	}
 }
 
+// GetUserByID godoc
+// @Summary Get, update, or delete a user
+// @Description Get, update, or delete a user by ID
+// @Tags Users
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "User ID"
+// @Success 200 {object} model.User
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/users/{id} [get]
+// @Router /api/users/{id} [put]
+// @Router /api/users/{id} [delete]
 func GetUserByID(userRepository *repository.UserRepository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		idText := strings.TrimPrefix(

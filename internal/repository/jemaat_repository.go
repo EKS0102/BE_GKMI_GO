@@ -45,11 +45,7 @@ ORDER BY id ASC
 	return scanJemaatRows(rows)
 }
 
-func (r *JemaatRepository) GetByID(
-	ctx context.Context,
-	id int,
-) (*model.Jemaat, error) {
-
+func (r *JemaatRepository) GetByID(ctx context.Context, id int) (*model.Jemaat, error) {
 	query := `
 SELECT
 id,
@@ -78,7 +74,6 @@ WHERE id = $1
 		&jemaat.StatusDiakonia,
 		&jemaat.KelompokIbadah,
 	)
-
 	if err != nil {
 		return nil, err
 	}
@@ -86,11 +81,7 @@ WHERE id = $1
 	return &jemaat, nil
 }
 
-func (r *JemaatRepository) Create(
-	ctx context.Context,
-	jemaat model.Jemaat,
-) (*model.Jemaat, error) {
-
+func (r *JemaatRepository) Create(ctx context.Context, jemaat model.Jemaat) (*model.Jemaat, error) {
 	query := `
 INSERT INTO jemaat (
 nama_panggilan,
@@ -147,12 +138,84 @@ kelompok_ibadah
 	return &result, nil
 }
 
-func (r *JemaatRepository) Update(
-	ctx context.Context,
-	id int,
-	jemaat model.Jemaat,
-) (*model.Jemaat, error) {
+func (r *JemaatRepository) BulkCreate(ctx context.Context, jemaatList []model.Jemaat) ([]model.Jemaat, error) {
+	if len(jemaatList) == 0 {
+		return []model.Jemaat{}, nil
+	}
 
+	tx, err := r.DB.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	query := `
+INSERT INTO jemaat (
+nama_panggilan,
+nama_lengkap,
+jenis_kelamin,
+tanggal_lahir,
+domisili,
+status_jemaat,
+status_diakonia,
+kelompok_ibadah
+)
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+RETURNING
+id,
+nama_panggilan,
+nama_lengkap,
+jenis_kelamin,
+tanggal_lahir,
+domisili,
+status_jemaat,
+status_diakonia,
+kelompok_ibadah
+`
+
+	result := make([]model.Jemaat, 0, len(jemaatList))
+
+	for _, jemaat := range jemaatList {
+		var item model.Jemaat
+
+		err := tx.QueryRow(
+			ctx,
+			query,
+			jemaat.NamaPanggilan,
+			jemaat.NamaLengkap,
+			jemaat.JenisKelamin,
+			jemaat.TanggalLahir,
+			jemaat.Domisili,
+			jemaat.StatusJemaat,
+			jemaat.StatusDiakonia,
+			jemaat.KelompokIbadah,
+		).Scan(
+			&item.ID,
+			&item.NamaPanggilan,
+			&item.NamaLengkap,
+			&item.JenisKelamin,
+			&item.TanggalLahir,
+			&item.Domisili,
+			&item.StatusJemaat,
+			&item.StatusDiakonia,
+			&item.KelompokIbadah,
+		)
+
+		if err != nil {
+			return nil, err
+		}
+
+		result = append(result, item)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func (r *JemaatRepository) Update(ctx context.Context, id int, jemaat model.Jemaat) (*model.Jemaat, error) {
 	query := `
 UPDATE jemaat
 SET
@@ -210,11 +273,7 @@ kelompok_ibadah
 	return &result, nil
 }
 
-func (r *JemaatRepository) Delete(
-	ctx context.Context,
-	id int,
-) error {
-
+func (r *JemaatRepository) Delete(ctx context.Context, id int) error {
 	query := `
 DELETE FROM jemaat
 WHERE id = $1
@@ -232,12 +291,7 @@ WHERE id = $1
 	return nil
 }
 
-func (r *JemaatRepository) GetPaginated(
-	ctx context.Context,
-	page int,
-	limit int,
-) ([]model.Jemaat, error) {
-
+func (r *JemaatRepository) GetPaginated(ctx context.Context, page int, limit int) ([]model.Jemaat, error) {
 	offset := (page - 1) * limit
 
 	query := `
@@ -257,26 +311,16 @@ LIMIT $1
 OFFSET $2
 `
 
-	rows, err := r.DB.Query(
-		ctx,
-		query,
-		limit,
-		offset,
-	)
-
+	rows, err := r.DB.Query(ctx, query, limit, offset)
 	if err != nil {
 		return nil, err
 	}
-
 	defer rows.Close()
 
 	return scanJemaatRows(rows)
 }
 
-func (r *JemaatRepository) Count(
-	ctx context.Context,
-) (int, error) {
-
+func (r *JemaatRepository) Count(ctx context.Context) (int, error) {
 	query := `
 SELECT COUNT(*)
 FROM jemaat
@@ -292,13 +336,7 @@ FROM jemaat
 	return total, nil
 }
 
-func (r *JemaatRepository) SearchPaginated(
-	ctx context.Context,
-	search string,
-	page int,
-	limit int,
-) ([]model.Jemaat, error) {
-
+func (r *JemaatRepository) SearchPaginated(ctx context.Context, search string, page int, limit int) ([]model.Jemaat, error) {
 	offset := (page - 1) * limit
 	searchPattern := "%" + strings.ToLower(search) + "%"
 
@@ -322,28 +360,16 @@ LIMIT $2
 OFFSET $3
 `
 
-	rows, err := r.DB.Query(
-		ctx,
-		query,
-		searchPattern,
-		limit,
-		offset,
-	)
-
+	rows, err := r.DB.Query(ctx, query, searchPattern, limit, offset)
 	if err != nil {
 		return nil, err
 	}
-
 	defer rows.Close()
 
 	return scanJemaatRows(rows)
 }
 
-func (r *JemaatRepository) CountSearch(
-	ctx context.Context,
-	search string,
-) (int, error) {
-
+func (r *JemaatRepository) CountSearch(ctx context.Context, search string) (int, error) {
 	searchPattern := "%" + strings.ToLower(search) + "%"
 
 	query := `
@@ -356,12 +382,7 @@ OR LOWER(nama_lengkap) LIKE $1
 
 	var total int
 
-	err := r.DB.QueryRow(
-		ctx,
-		query,
-		searchPattern,
-	).Scan(&total)
-
+	err := r.DB.QueryRow(ctx, query, searchPattern).Scan(&total)
 	if err != nil {
 		return 0, err
 	}
@@ -369,11 +390,7 @@ OR LOWER(nama_lengkap) LIKE $1
 	return total, nil
 }
 
-func normalizeSort(
-	sortBy string,
-	sortOrder string,
-) (string, string) {
-
+func normalizeSort(sortBy string, sortOrder string) (string, string) {
 	allowedSortFields := map[string]string{
 		"id":              "id",
 		"nama_panggilan":  "nama_panggilan",
@@ -391,7 +408,6 @@ func normalizeSort(
 	}
 
 	order := strings.ToLower(sortOrder)
-
 	if order != "desc" {
 		order = "asc"
 	}
@@ -399,19 +415,7 @@ func normalizeSort(
 	return column, order
 }
 
-func (r *JemaatRepository) GetFilteredPaginated(
-	ctx context.Context,
-	search string,
-	jenisKelamin string,
-	statusJemaat string,
-	statusDiakonia string,
-	kelompokIbadah string,
-	sortBy string,
-	sortOrder string,
-	page int,
-	limit int,
-) ([]model.Jemaat, error) {
-
+func (r *JemaatRepository) GetFilteredPaginated(ctx context.Context, search string, jenisKelamin string, statusJemaat string, statusDiakonia string, kelompokIbadah string, sortBy string, sortOrder string, page int, limit int) ([]model.Jemaat, error) {
 	offset := (page - 1) * limit
 
 	query := `
@@ -439,98 +443,48 @@ LOWER(nama_panggilan) LIKE $%d
 OR LOWER(nama_lengkap) LIKE $%d
 )
 `, argIndex, argIndex)
-
-		args = append(
-			args,
-			"%"+strings.ToLower(search)+"%",
-		)
-
+		args = append(args, "%"+strings.ToLower(search)+"%")
 		argIndex++
 	}
 
 	if jenisKelamin != "" {
-		query += fmt.Sprintf(
-			" AND jenis_kelamin = $%d",
-			argIndex,
-		)
-
+		query += fmt.Sprintf(" AND jenis_kelamin = $%d", argIndex)
 		args = append(args, jenisKelamin)
 		argIndex++
 	}
 
 	if statusJemaat != "" {
-		query += fmt.Sprintf(
-			" AND status_jemaat = $%d",
-			argIndex,
-		)
-
+		query += fmt.Sprintf(" AND status_jemaat = $%d", argIndex)
 		args = append(args, statusJemaat)
 		argIndex++
 	}
 
 	if statusDiakonia != "" {
-		query += fmt.Sprintf(
-			" AND status_diakonia = $%d",
-			argIndex,
-		)
-
+		query += fmt.Sprintf(" AND status_diakonia = $%d", argIndex)
 		args = append(args, statusDiakonia)
 		argIndex++
 	}
 
 	if kelompokIbadah != "" {
-		query += fmt.Sprintf(
-			" AND kelompok_ibadah = $%d",
-			argIndex,
-		)
-
+		query += fmt.Sprintf(" AND kelompok_ibadah = $%d", argIndex)
 		args = append(args, kelompokIbadah)
 		argIndex++
 	}
 
-	sortColumn, sortDirection := normalizeSort(
-		sortBy,
-		sortOrder,
-	)
+	sortColumn, sortDirection := normalizeSort(sortBy, sortOrder)
+	query += fmt.Sprintf(" ORDER BY %s %s LIMIT $%d OFFSET $%d", sortColumn, sortDirection, argIndex, argIndex+1)
+	args = append(args, limit, offset)
 
-	query += fmt.Sprintf(
-		" ORDER BY %s %s LIMIT $%d OFFSET $%d",
-		sortColumn,
-		sortDirection,
-		argIndex,
-		argIndex+1,
-	)
-
-	args = append(
-		args,
-		limit,
-		offset,
-	)
-
-	rows, err := r.DB.Query(
-		ctx,
-		query,
-		args...,
-	)
-
+	rows, err := r.DB.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
-
 	defer rows.Close()
 
 	return scanJemaatRows(rows)
 }
 
-func (r *JemaatRepository) CountFiltered(
-	ctx context.Context,
-	search string,
-	jenisKelamin string,
-	statusJemaat string,
-	statusDiakonia string,
-	kelompokIbadah string,
-) (int, error) {
-
+func (r *JemaatRepository) CountFiltered(ctx context.Context, search string, jenisKelamin string, statusJemaat string, statusDiakonia string, kelompokIbadah string) (int, error) {
 	query := `
 SELECT COUNT(*)
 FROM jemaat
@@ -547,62 +501,36 @@ LOWER(nama_panggilan) LIKE $%d
 OR LOWER(nama_lengkap) LIKE $%d
 )
 `, argIndex, argIndex)
-
-		args = append(
-			args,
-			"%"+strings.ToLower(search)+"%",
-		)
-
+		args = append(args, "%"+strings.ToLower(search)+"%")
 		argIndex++
 	}
 
 	if jenisKelamin != "" {
-		query += fmt.Sprintf(
-			" AND jenis_kelamin = $%d",
-			argIndex,
-		)
-
+		query += fmt.Sprintf(" AND jenis_kelamin = $%d", argIndex)
 		args = append(args, jenisKelamin)
 		argIndex++
 	}
 
 	if statusJemaat != "" {
-		query += fmt.Sprintf(
-			" AND status_jemaat = $%d",
-			argIndex,
-		)
-
+		query += fmt.Sprintf(" AND status_jemaat = $%d", argIndex)
 		args = append(args, statusJemaat)
 		argIndex++
 	}
 
 	if statusDiakonia != "" {
-		query += fmt.Sprintf(
-			" AND status_diakonia = $%d",
-			argIndex,
-		)
-
+		query += fmt.Sprintf(" AND status_diakonia = $%d", argIndex)
 		args = append(args, statusDiakonia)
 		argIndex++
 	}
 
 	if kelompokIbadah != "" {
-		query += fmt.Sprintf(
-			" AND kelompok_ibadah = $%d",
-			argIndex,
-		)
-
+		query += fmt.Sprintf(" AND kelompok_ibadah = $%d", argIndex)
 		args = append(args, kelompokIbadah)
 	}
 
 	var total int
 
-	err := r.DB.QueryRow(
-		ctx,
-		query,
-		args...,
-	).Scan(&total)
-
+	err := r.DB.QueryRow(ctx, query, args...).Scan(&total)
 	if err != nil {
 		return 0, err
 	}
@@ -611,11 +539,9 @@ OR LOWER(nama_lengkap) LIKE $%d
 }
 
 func scanJemaatRows(rows pgx.Rows) ([]model.Jemaat, error) {
-
 	jemaatList := make([]model.Jemaat, 0)
 
 	for rows.Next() {
-
 		var jemaat model.Jemaat
 
 		err := rows.Scan(
@@ -634,10 +560,7 @@ func scanJemaatRows(rows pgx.Rows) ([]model.Jemaat, error) {
 			return nil, err
 		}
 
-		jemaatList = append(
-			jemaatList,
-			jemaat,
-		)
+		jemaatList = append(jemaatList, jemaat)
 	}
 
 	if err := rows.Err(); err != nil {

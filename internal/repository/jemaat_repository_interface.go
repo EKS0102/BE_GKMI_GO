@@ -8,6 +8,7 @@ import (
 
 type JemaatRepositoryInterface interface {
 	GetAll(ctx context.Context) ([]model.Jemaat, error)
+	GetByID(ctx context.Context, id int) (*model.Jemaat, error)
 	GetPaginated(ctx context.Context, page int, limit int) ([]model.Jemaat, error)
 	Count(ctx context.Context) (int, error)
 	SearchPaginated(ctx context.Context, search string, page int, limit int) ([]model.Jemaat, error)
@@ -15,6 +16,7 @@ type JemaatRepositoryInterface interface {
 	GetFilteredPaginated(ctx context.Context, search string, jenisKelamin string, statusJemaat string, statusDiakonia string, kelompokIbadah string, sortBy string, sortOrder string, page int, limit int) ([]model.Jemaat, error)
 	CountFiltered(ctx context.Context, search string, jenisKelamin string, statusJemaat string, statusDiakonia string, kelompokIbadah string) (int, error)
 	Create(ctx context.Context, jemaat model.Jemaat) (*model.Jemaat, error)
+	BulkCreate(ctx context.Context, jemaatList []model.Jemaat) ([]model.Jemaat, error)
 	Update(ctx context.Context, id int, jemaat model.Jemaat) (*model.Jemaat, error)
 	Delete(ctx context.Context, id int) error
 }

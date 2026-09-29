@@ -1,0 +1,842 @@
+basePath: /
+definitions:
+  model.CreateJemaatRequest:
+    properties:
+      domisili:
+        type: string
+      jenis_kelamin:
+        $ref: '#/definitions/model.JenisKelamin'
+      kelompok_ibadah:
+        $ref: '#/definitions/model.KelompokIbadah'
+      nama_lengkap:
+        type: string
+      nama_panggilan:
+        type: string
+      status_diakonia:
+        $ref: '#/definitions/model.StatusDiakonia'
+      status_jemaat:
+        $ref: '#/definitions/model.StatusJemaat'
+      tanggal_lahir:
+        type: string
+    type: object
+  model.HealthResponse:
+    properties:
+      application:
+        type: string
+      status:
+        type: string
+      version:
+        type: string
+    type: object
+  model.Jemaat:
+    properties:
+      domisili:
+        type: string
+      id:
+        type: integer
+      jenis_kelamin:
+        $ref: '#/definitions/model.JenisKelamin'
+      kelompok_ibadah:
+        $ref: '#/definitions/model.KelompokIbadah'
+      nama_lengkap:
+        type: string
+      nama_panggilan:
+        type: string
+      status_diakonia:
+        $ref: '#/definitions/model.StatusDiakonia'
+      status_jemaat:
+        $ref: '#/definitions/model.StatusJemaat'
+      tanggal_lahir:
+        type: string
+    type: object
+  model.JenisKelamin:
+    enum:
+    - Laki-Laki
+    - Perempuan
+    type: string
+    x-enum-varnames:
+    - JenisKelaminLakiLaki
+    - JenisKelaminPerempuan
+  model.KelompokIbadah:
+    enum:
+    - Sekolah Minggu
+    - Youth
+    - Kompak
+    - Koper
+    - Lansia
+    type: string
+    x-enum-varnames:
+    - KelompokIbadahSekolahMinggu
+    - KelompokIbadahYouth
+    - KelompokIbadahKompak
+    - KelompokIbadahKoper
+    - KelompokIbadahLansia
+  model.LoginRequest:
+    properties:
+      password:
+        type: string
+      username:
+        type: string
+    type: object
+  model.RefreshTokenRequest:
+    properties:
+      refresh_token:
+        type: string
+    type: object
+  model.StatusDiakonia:
+    enum:
+    - Ya
+    - Tidak
+    type: string
+    x-enum-varnames:
+    - StatusDiakoniaYa
+    - StatusDiakoniaTidak
+  model.StatusJemaat:
+    enum:
+    - Jemaat
+    - Simpatisan
+    - Tamu
+    type: string
+    x-enum-varnames:
+    - StatusJemaatJemaat
+    - StatusJemaatSimpatisan
+    - StatusJemaatTamu
+  model.UpdateJemaatRequest:
+    properties:
+      domisili:
+        type: string
+      jenis_kelamin:
+        $ref: '#/definitions/model.JenisKelamin'
+      kelompok_ibadah:
+        $ref: '#/definitions/model.KelompokIbadah'
+      nama_lengkap:
+        type: string
+      nama_panggilan:
+        type: string
+      status_diakonia:
+        $ref: '#/definitions/model.StatusDiakonia'
+      status_jemaat:
+        $ref: '#/definitions/model.StatusJemaat'
+      tanggal_lahir:
+        type: string
+    type: object
+  model.User:
+    properties:
+      email:
+        type: string
+      id:
+        type: integer
+      is_active:
+        type: boolean
+      password_hash:
+        type: string
+      role:
+        type: string
+      username:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: Backend API for GKMI NTC
+  title: BE GKMI NTC API
+  version: "1.0"
+paths:
+  /api/auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate user and generate access token and refresh token
+      parameters:
+      - description: Login credentials
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Login user
+      tags:
+      - Auth
+  /api/auth/logout:
+    post:
+      consumes:
+      - application/json
+      description: Revoke the supplied refresh token
+      parameters:
+      - description: Refresh token
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.RefreshTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Logout user
+      tags:
+      - Auth
+  /api/auth/me:
+    get:
+      description: Get authenticated user information from the JWT access token
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get current user
+      tags:
+      - Auth
+  /api/auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Rotate the refresh token and generate a new access token
+      parameters:
+      - description: Refresh token
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.RefreshTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Refresh access token
+      tags:
+      - Auth
+  /api/health:
+    get:
+      description: Check whether the backend API is running
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.HealthResponse'
+        "405":
+          description: Method Not Allowed
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Health check
+      tags:
+      - Health
+  /api/jemaat:
+    get:
+      description: Get jemaat list with optional search, filters, sorting, and pagination.
+      parameters:
+      - description: Search by nama panggilan or nama lengkap
+        in: query
+        name: search
+        type: string
+      - description: Jenis kelamin
+        enum:
+        - Laki-Laki
+        - Perempuan
+        in: query
+        name: jenis_kelamin
+        type: string
+      - description: Status jemaat
+        enum:
+        - Jemaat
+        - Simpatisan
+        - Tamu
+        in: query
+        name: status_jemaat
+        type: string
+      - description: Status diakonia
+        enum:
+        - Ya
+        - Tidak
+        in: query
+        name: status_diakonia
+        type: string
+      - description: Kelompok ibadah
+        enum:
+        - Sekolah Minggu
+        - Youth
+        - Kompak
+        - Koper
+        - Lansia
+        in: query
+        name: kelompok_ibadah
+        type: string
+      - description: Sort field
+        enum:
+        - id
+        - nama_panggilan
+        - nama_lengkap
+        - tanggal_lahir
+        - jenis_kelamin
+        - status_jemaat
+        - status_diakonia
+        - kelompok_ibadah
+        in: query
+        name: sort_by
+        type: string
+      - description: Sort order
+        enum:
+        - asc
+        - desc
+        in: query
+        name: sort_order
+        type: string
+      - description: Page number
+        in: query
+        minimum: 1
+        name: page
+        type: integer
+      - description: Items per page
+        in: query
+        minimum: 1
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Jemaat list or paginated response
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List jemaat
+      tags:
+      - Jemaat
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Jemaat data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.CreateJemaatRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/model.Jemaat'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create jemaat
+      tags:
+      - Jemaat
+  /api/jemaat/{id}:
+    delete:
+      parameters:
+      - description: Jemaat ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete jemaat
+      tags:
+      - Jemaat
+    get:
+      parameters:
+      - description: Jemaat ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.Jemaat'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get jemaat by ID
+      tags:
+      - Jemaat
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Jemaat ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Jemaat data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.UpdateJemaatRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.Jemaat'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update jemaat
+      tags:
+      - Jemaat
+  /api/jemaat/bulk:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Jemaat data list
+        in: body
+        name: request
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/model.CreateJemaatRequest'
+          type: array
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            items:
+              $ref: '#/definitions/model.Jemaat'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Bulk create jemaat
+      tags:
+      - Jemaat
+  /api/users:
+    get:
+      consumes:
+      - application/json
+      description: Get all users or create a new user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/model.User'
+            type: array
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/model.User'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List and create users
+      tags:
+      - Users
+    post:
+      consumes:
+      - application/json
+      description: Get all users or create a new user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/model.User'
+            type: array
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/model.User'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List and create users
+      tags:
+      - Users
+  /api/users/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Get, update, or delete a user by ID
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get, update, or delete a user
+      tags:
+      - Users
+    get:
+      consumes:
+      - application/json
+      description: Get, update, or delete a user by ID
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get, update, or delete a user
+      tags:
+      - Users
+    put:
+      consumes:
+      - application/json
+      description: Get, update, or delete a user by ID
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get, update, or delete a user
+      tags:
+      - Users
+schemes:
+- http
+securityDefinitions:
+  BearerAuth:
+    description: 'Enter the JWT access token with the Bearer prefix. Example: Bearer
+      {token}'
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

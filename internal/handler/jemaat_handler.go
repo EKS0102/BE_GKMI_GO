@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -18,6 +19,10 @@ func Jemaat(
 ) http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/jemaat/bulk" && r.Method == http.MethodPost {
+			BulkJemaat(jemaatService)(w, r)
+			return
+		}
 
 		switch r.Method {
 
@@ -347,5 +352,52 @@ func Jemaat(
 				"Method not allowed",
 			)
 		}
+	}
+}
+
+func BulkJemaat(jemaatService JemaatServiceInterface) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			response.Error(w, http.StatusMethodNotAllowed, "Method not allowed")
+			return
+		}
+
+		var requests []model.CreateJemaatRequest
+		if err := json.NewDecoder(r.Body).Decode(&requests); err != nil {
+			response.Error(w, http.StatusBadRequest, "Invalid JSON")
+			return
+		}
+
+		if len(requests) == 0 {
+			response.Error(w, http.StatusBadRequest, "Bulk jemaat must not be empty")
+			return
+		}
+
+		jemaatList := make([]model.Jemaat, 0, len(requests))
+		for _, request := range requests {
+			jemaatList = append(jemaatList, model.Jemaat{
+				NamaPanggilan:  request.NamaPanggilan,
+				NamaLengkap:    request.NamaLengkap,
+				JenisKelamin:   request.JenisKelamin,
+				TanggalLahir:   request.TanggalLahir,
+				Domisili:       request.Domisili,
+				StatusJemaat:   request.StatusJemaat,
+				StatusDiakonia: request.StatusDiakonia,
+				KelompokIbadah: request.KelompokIbadah,
+			})
+		}
+
+		result, err := jemaatService.BulkCreate(r.Context(), jemaatList)
+		if err != nil {
+			var validationErr *service.ValidationError
+			if errors.As(err, &validationErr) {
+				response.Error(w, http.StatusBadRequest, validationErr.Message)
+				return
+			}
+			response.Error(w, http.StatusInternalServerError, "Internal server error")
+			return
+		}
+
+		response.JSON(w, http.StatusCreated, result)
 	}
 }

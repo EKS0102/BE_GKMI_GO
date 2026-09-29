@@ -4,77 +4,156 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"BE_GKMI_NTC_GO/internal/middleware"
 	"BE_GKMI_NTC_GO/internal/model"
 	"BE_GKMI_NTC_GO/internal/response"
-	"BE_GKMI_NTC_GO/internal/service"
 	"BE_GKMI_NTC_GO/internal/token"
 )
 
-func Login(authService *service.AuthService) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+// Login godoc
+// @Summary Login user
+// @Description Authenticate user and generate access token and refresh token
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param request body model.LoginRequest true "Login credentials"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/auth/login [post]
+func Login(authService AuthServiceInterface) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			response.Error(w, http.StatusMethodNotAllowed, "Method not allowed")
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
 
 		var request model.LoginRequest
-
-		err := json.NewDecoder(r.Body).Decode(&request)
-		if err != nil {
-			response.Error(w, http.StatusBadRequest, "Invalid request body")
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
 			return
 		}
 
-		user, err := authService.Login(r.Context(), request)
+		user, refreshToken, err := authService.Login(r.Context(), request)
 		if err != nil {
-			response.Error(w, http.StatusUnauthorized, "Invalid credentials")
+			http.Error(w, err.Error(), http.StatusUnauthorized)
 			return
 		}
 
-		accessToken, err := token.GenerateAccessToken(
-			user.ID,
-			user.Username,
-			user.Role,
-		)
+		accessToken, err := token.GenerateAccessToken(user.ID, user.Username, user.Role)
 		if err != nil {
-			response.Error(
-				w,
-				http.StatusInternalServerError,
-				"Failed to generate access token",
-			)
+			http.Error(w, "failed to generate access token", http.StatusInternalServerError)
 			return
 		}
 
-		_ = response.JSON(w, http.StatusOK, map[string]string{
-			"access_token": accessToken,
-			"token_type":   "Bearer",
+		response.JSON(w, http.StatusOK, map[string]string{
+			"access_token":  accessToken,
+			"token_type":    "Bearer",
+			"refresh_token": refreshToken,
 		})
-	}
+	})
 }
 
-func Me(w http.ResponseWriter, r *http.Request) {
-	userID, ok := middleware.GetUserID(r.Context())
-	if !ok {
-		response.Error(w, http.StatusUnauthorized, "User ID not found")
-		return
-	}
+// Refresh godoc
+// @Summary Refresh access token
+// @Description Rotate the refresh token and generate a new access token
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param request body model.RefreshTokenRequest true "Refresh token"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/auth/refresh [post]
+func Refresh(authService AuthServiceInterface) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
 
-	username, ok := middleware.GetUsername(r.Context())
-	if !ok {
-		response.Error(w, http.StatusUnauthorized, "Username not found")
-		return
-	}
+		var request model.RefreshTokenRequest
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
 
-	role, ok := middleware.GetRole(r.Context())
-	if !ok {
-		response.Error(w, http.StatusUnauthorized, "Role not found")
-		return
-	}
+		user, refreshToken, err := authService.Refresh(r.Context(), request.RefreshToken)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusUnauthorized)
+			return
+		}
 
-	_ = response.JSON(w, http.StatusOK, map[string]interface{}{
-		"user_id":  userID,
-		"username": username,
-		"role":     role,
+		accessToken, err := token.GenerateAccessToken(user.ID, user.Username, user.Role)
+		if err != nil {
+			http.Error(w, "failed to generate access token", http.StatusInternalServerError)
+			return
+		}
+
+		response.JSON(w, http.StatusOK, map[string]string{
+			"access_token":  accessToken,
+			"token_type":    "Bearer",
+			"refresh_token": refreshToken,
+		})
+	})
+}
+
+// Logout godoc
+// @Summary Logout user
+// @Description Revoke the supplied refresh token
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param request body model.RefreshTokenRequest true "Refresh token"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Router /api/auth/logout [post]
+func Logout(authService AuthServiceInterface) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		var request model.RefreshTokenRequest
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		if err := authService.Logout(r.Context(), request.RefreshToken); err != nil {
+			http.Error(w, err.Error(), http.StatusUnauthorized)
+			return
+		}
+
+		response.JSON(w, http.StatusOK, map[string]string{
+			"message": "logout successful",
+		})
+	})
+}
+
+// Me godoc
+// @Summary Get current user
+// @Description Get authenticated user information from the JWT access token
+// @Tags Auth
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} map[string]interface{}
+// @Failure 401 {object} map[string]string
+// @Router /api/auth/me [get]
+func Me(userID int, username string, role string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		response.JSON(w, http.StatusOK, map[string]interface{}{
+			"user_id":  userID,
+			"username": username,
+			"role":     role,
+		})
 	})
 }

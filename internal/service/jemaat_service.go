@@ -30,6 +30,17 @@ func (e *ValidationError) Error() string {
 	return e.Message
 }
 
+func (s *JemaatService) GetByID(ctx context.Context, id int) (*model.Jemaat, error) {
+	jemaat, err := s.JemaatRepository.GetByID(ctx, id)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, fmt.Errorf("jemaat not found")
+		}
+		return nil, err
+	}
+	return jemaat, nil
+}
+
 func (s *JemaatService) GetAll(
 	ctx context.Context,
 ) ([]model.Jemaat, error) {
@@ -340,4 +351,34 @@ func (s *JemaatService) Delete(
 	}
 
 	return nil
+}
+
+func (s *JemaatService) BulkCreate(ctx context.Context, jemaatList []model.Jemaat) ([]model.Jemaat, error) {
+	if len(jemaatList) == 0 {
+		return nil, &ValidationError{Message: "Bulk jemaat must not be empty"}
+	}
+
+	for _, jemaat := range jemaatList {
+		request := model.CreateJemaatRequest{
+			NamaPanggilan:  jemaat.NamaPanggilan,
+			NamaLengkap:    jemaat.NamaLengkap,
+			JenisKelamin:   jemaat.JenisKelamin,
+			TanggalLahir:   jemaat.TanggalLahir,
+			Domisili:       jemaat.Domisili,
+			StatusJemaat:   jemaat.StatusJemaat,
+			StatusDiakonia: jemaat.StatusDiakonia,
+			KelompokIbadah: jemaat.KelompokIbadah,
+		}
+
+		if message := request.Validate(); message != "" {
+			return nil, &ValidationError{Message: message}
+		}
+	}
+
+	result, err := s.JemaatRepository.BulkCreate(ctx, jemaatList)
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
 }

@@ -3,7 +3,9 @@ package service
 import (
 	"context"
 	"errors"
+	"github.com/jackc/pgx/v5"
 	"testing"
+	"time"
 
 	"BE_GKMI_NTC_GO/internal/model"
 	"BE_GKMI_NTC_GO/internal/repository"
@@ -32,9 +34,20 @@ type fakeJemaatRepository struct {
 	lastSortOrder      string
 	lastFilterPage     int
 	lastFilterLimit    int
+	bulkItems          []model.Jemaat
+	bulkErr            error
+	byIDItem           *model.Jemaat
+	byIDErr            error
 }
 
 func (f *fakeJemaatRepository) GetAll(context.Context) ([]model.Jemaat, error) { return nil, nil }
+
+func (f *fakeJemaatRepository) GetByID(context.Context, int) (*model.Jemaat, error) {
+	if f.byIDErr != nil {
+		return nil, f.byIDErr
+	}
+	return f.byIDItem, nil
+}
 
 func (f *fakeJemaatRepository) GetPaginated(context.Context, int, int) ([]model.Jemaat, error) {
 	if f.err != nil {
@@ -94,6 +107,14 @@ func (f *fakeJemaatRepository) Create(context.Context, model.Jemaat) (*model.Jem
 	return nil, nil
 }
 
+func (f *fakeJemaatRepository) BulkCreate(ctx context.Context, jemaatList []model.Jemaat) ([]model.Jemaat, error) {
+	f.bulkItems = jemaatList
+	if f.bulkErr != nil {
+		return nil, f.bulkErr
+	}
+	return jemaatList, nil
+}
+
 func (f *fakeJemaatRepository) Update(context.Context, int, model.Jemaat) (*model.Jemaat, error) {
 	return nil, nil
 }
@@ -101,6 +122,146 @@ func (f *fakeJemaatRepository) Update(context.Context, int, model.Jemaat) (*mode
 func (f *fakeJemaatRepository) Delete(context.Context, int) error { return nil }
 
 var _ repository.JemaatRepositoryInterface = (*fakeJemaatRepository)(nil)
+
+func TestJemaatServiceGetByID(t *testing.T) {
+	expected := &model.Jemaat{ID: 15, NamaPanggilan: "Bulk Budi", NamaLengkap: "Bulk Budi Santoso"}
+	fake := &fakeJemaatRepository{byIDItem: expected}
+	service := NewJemaatService(fake)
+
+	result, err := service.GetByID(context.Background(), 15)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected jemaat result")
+	}
+	if result.ID != 15 || result.NamaPanggilan != "Bulk Budi" {
+		t.Fatalf("unexpected result: %+v", result)
+	}
+}
+
+func TestJemaatServiceGetByIDNotFound(t *testing.T) {
+	fake := &fakeJemaatRepository{byIDErr: pgx.ErrNoRows}
+	service := NewJemaatService(fake)
+
+	_, err := service.GetByID(context.Background(), 99999)
+	if err == nil {
+		t.Fatal("expected not found error")
+	}
+	if err.Error() != "jemaat not found" {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestJemaatServiceGetByIDRepositoryError(t *testing.T) {
+	expectedErr := errors.New("database error")
+	fake := &fakeJemaatRepository{byIDErr: expectedErr}
+	service := NewJemaatService(fake)
+
+	_, err := service.GetByID(context.Background(), 15)
+	if !errors.Is(err, expectedErr) {
+		t.Fatalf("expected repository error, got %v", err)
+	}
+}
+
+func validBulkJemaat() []model.Jemaat {
+	tanggalLahir := time.Date(1990, time.January, 1, 0, 0, 0, 0, time.UTC)
+	return []model.Jemaat{
+		{
+			NamaPanggilan:  "Budi",
+			NamaLengkap:    "Budi Santoso",
+			JenisKelamin:   model.JenisKelaminLakiLaki,
+			TanggalLahir:   tanggalLahir,
+			Domisili:       "Cikarang",
+			StatusJemaat:   model.StatusJemaatJemaat,
+			StatusDiakonia: model.StatusDiakoniaTidak,
+			KelompokIbadah: model.KelompokIbadahKompak,
+		},
+		{
+			NamaPanggilan:  "Maria",
+			NamaLengkap:    "Maria Santoso",
+			JenisKelamin:   model.JenisKelaminPerempuan,
+			TanggalLahir:   tanggalLahir,
+			Domisili:       "Bekasi",
+			StatusJemaat:   model.StatusJemaatJemaat,
+			StatusDiakonia: model.StatusDiakoniaYa,
+			KelompokIbadah: model.KelompokIbadahYouth,
+		},
+	}
+}
+
+func TestJemaatServiceBulkCreate(t *testing.T) {
+	fake := &fakeJemaatRepository{}
+	service := NewJemaatService(fake)
+	input := validBulkJemaat()
+
+	result, err := service.BulkCreate(context.Background(), input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(fake.bulkItems) != 2 {
+		t.Fatalf("expected repository to receive 2 items, got %d", len(fake.bulkItems))
+	}
+
+	if len(result) != 2 {
+		t.Fatalf("expected 2 result items, got %d", len(result))
+	}
+
+	if result[0].NamaPanggilan != "Budi" || result[1].NamaPanggilan != "Maria" {
+		t.Fatal("unexpected bulk result")
+	}
+}
+
+func TestJemaatServiceBulkCreateEmpty(t *testing.T) {
+	fake := &fakeJemaatRepository{}
+	service := NewJemaatService(fake)
+
+	_, err := service.BulkCreate(context.Background(), []model.Jemaat{})
+	if err == nil {
+		t.Fatal("expected validation error for empty bulk input")
+	}
+
+	if err.Error() != "Bulk jemaat must not be empty" {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if fake.bulkItems != nil {
+		t.Fatal("repository should not be called for empty input")
+	}
+}
+
+func TestJemaatServiceBulkCreateInvalidItem(t *testing.T) {
+	fake := &fakeJemaatRepository{}
+	service := NewJemaatService(fake)
+	input := validBulkJemaat()
+	input[1].NamaLengkap = ""
+
+	_, err := service.BulkCreate(context.Background(), input)
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+
+	if err.Error() != "Nama lengkap is required" {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if fake.bulkItems != nil {
+		t.Fatal("repository should not be called when validation fails")
+	}
+}
+
+func TestJemaatServiceBulkCreateRepositoryError(t *testing.T) {
+	expectedErr := errors.New("database error")
+	fake := &fakeJemaatRepository{bulkErr: expectedErr}
+	service := NewJemaatService(fake)
+	input := validBulkJemaat()
+
+	_, err := service.BulkCreate(context.Background(), input)
+	if !errors.Is(err, expectedErr) {
+		t.Fatalf("expected repository error, got %v", err)
+	}
+}
 
 func TestJemaatServiceGetPaginatedInvalidPage(t *testing.T) {
 	service := NewJemaatService(nil)
@@ -114,10 +275,7 @@ func TestJemaatServiceGetPaginatedInvalidPage(t *testing.T) {
 }
 
 func TestJemaatServiceGetPaginated(t *testing.T) {
-	fake := &fakeJemaatRepository{
-		items: []model.Jemaat{{ID: 1}, {ID: 2}},
-		total: 5,
-	}
+	fake := &fakeJemaatRepository{items: []model.Jemaat{{ID: 1}, {ID: 2}}, total: 5}
 	service := NewJemaatService(fake)
 	result, err := service.GetPaginated(context.Background(), 2, 2)
 	if err != nil {
@@ -154,10 +312,7 @@ func TestJemaatServiceGetPaginatedRepositoryError(t *testing.T) {
 }
 
 func TestJemaatServiceSearchPaginated(t *testing.T) {
-	fake := &fakeJemaatRepository{
-		searchItems: []model.Jemaat{{ID: 12, NamaPanggilan: "Maria", NamaLengkap: "Maria Elisabeth"}},
-		searchTotal: 2,
-	}
+	fake := &fakeJemaatRepository{searchItems: []model.Jemaat{{ID: 12, NamaPanggilan: "Maria", NamaLengkap: "Maria Elisabeth"}}, searchTotal: 2}
 	service := NewJemaatService(fake)
 	result, err := service.SearchPaginated(context.Background(), "maria", 2, 1)
 	if err != nil {
@@ -200,10 +355,7 @@ func TestJemaatServiceSearchPaginatedRepositoryError(t *testing.T) {
 }
 
 func TestJemaatServiceGetFilteredPaginated(t *testing.T) {
-	fake := &fakeJemaatRepository{
-		filteredItems: []model.Jemaat{{ID: 4, NamaPanggilan: "Sinta", NamaLengkap: "Sinta Maria"}, {ID: 12, NamaPanggilan: "Maria", NamaLengkap: "Maria Elisabeth"}},
-		filteredTotal: 2,
-	}
+	fake := &fakeJemaatRepository{filteredItems: []model.Jemaat{{ID: 4, NamaPanggilan: "Sinta", NamaLengkap: "Sinta Maria"}, {ID: 12, NamaPanggilan: "Maria", NamaLengkap: "Maria Elisabeth"}}, filteredTotal: 2}
 	service := NewJemaatService(fake)
 	result, err := service.GetFilteredPaginated(context.Background(), "maria", "Perempuan", "Jemaat", "Ya", "Kompak", "nama_lengkap", "asc", 1, 10)
 	if err != nil {
