@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"BE_GKMI_NTC_GO/internal/model"
+	"BE_GKMI_NTC_GO/internal/service"
 )
 
 type fakeAuthService struct {
@@ -57,13 +58,10 @@ func TestLoginSuccess(t *testing.T) {
 		refreshToken: "refresh-token-test",
 	}
 	handler := Login(fakeService)
-
 	request := httptest.NewRequest(http.MethodPost, "/api/auth/login", strings.NewReader(`{"username":"eko","password":"rahasia123"}`))
 	request.Header.Set("Content-Type", "application/json")
 	recorder := httptest.NewRecorder()
-
 	handler.ServeHTTP(recorder, request)
-
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("expected status 200, got %d: %s", recorder.Code, recorder.Body.String())
 	}
@@ -84,12 +82,9 @@ func TestLoginSuccess(t *testing.T) {
 func TestLoginMethodNotAllowed(t *testing.T) {
 	fakeService := &fakeAuthService{}
 	handler := Login(fakeService)
-
 	request := httptest.NewRequest(http.MethodGet, "/api/auth/login", nil)
 	recorder := httptest.NewRecorder()
-
 	handler.ServeHTTP(recorder, request)
-
 	if recorder.Code != http.StatusMethodNotAllowed {
 		t.Fatalf("expected status 405, got %d", recorder.Code)
 	}
@@ -98,13 +93,10 @@ func TestLoginMethodNotAllowed(t *testing.T) {
 func TestLoginInvalidBody(t *testing.T) {
 	fakeService := &fakeAuthService{}
 	handler := Login(fakeService)
-
 	request := httptest.NewRequest(http.MethodPost, "/api/auth/login", strings.NewReader(`{"username":`))
 	request.Header.Set("Content-Type", "application/json")
 	recorder := httptest.NewRecorder()
-
 	handler.ServeHTTP(recorder, request)
-
 	if recorder.Code != http.StatusBadRequest {
 		t.Fatalf("expected status 400, got %d", recorder.Code)
 	}
@@ -114,32 +106,35 @@ func TestLoginInvalidBody(t *testing.T) {
 }
 
 func TestLoginInvalidCredentials(t *testing.T) {
-	fakeService := &fakeAuthService{err: errors.New("invalid credentials")}
+	fakeService := &fakeAuthService{err: service.ErrInvalidCredentials}
 	handler := Login(fakeService)
-
 	request := httptest.NewRequest(http.MethodPost, "/api/auth/login", strings.NewReader(`{"username":"eko","password":"salah"}`))
 	request.Header.Set("Content-Type", "application/json")
 	recorder := httptest.NewRecorder()
-
 	handler.ServeHTTP(recorder, request)
-
 	if recorder.Code != http.StatusUnauthorized {
 		t.Fatalf("expected status 401, got %d", recorder.Code)
+	}
+	if !strings.Contains(recorder.Body.String(), `"message":"Invalid credentials"`) {
+		t.Fatalf("expected generic invalid credentials message, got %s", recorder.Body.String())
 	}
 }
 
 func TestLoginRepositoryError(t *testing.T) {
 	fakeService := &fakeAuthService{err: errors.New("database error")}
 	handler := Login(fakeService)
-
 	request := httptest.NewRequest(http.MethodPost, "/api/auth/login", strings.NewReader(`{"username":"eko","password":"rahasia123"}`))
 	request.Header.Set("Content-Type", "application/json")
 	recorder := httptest.NewRecorder()
-
 	handler.ServeHTTP(recorder, request)
-
-	if recorder.Code != http.StatusUnauthorized {
-		t.Fatalf("expected status 401, got %d", recorder.Code)
+	if recorder.Code != http.StatusInternalServerError {
+		t.Fatalf("expected status 500, got %d", recorder.Code)
+	}
+	if strings.Contains(recorder.Body.String(), "database error") {
+		t.Fatalf("database error leaked to client: %s", recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), `"message":"Internal server error"`) {
+		t.Fatalf("expected generic internal server error message, got %s", recorder.Body.String())
 	}
 }
 
@@ -150,13 +145,10 @@ func TestRefreshSuccess(t *testing.T) {
 		newRefreshToken: "new-refresh-token",
 	}
 	handler := Refresh(fakeService)
-
 	request := httptest.NewRequest(http.MethodPost, "/api/auth/refresh", strings.NewReader(`{"refresh_token":"old-refresh-token"}`))
 	request.Header.Set("Content-Type", "application/json")
 	recorder := httptest.NewRecorder()
-
 	handler.ServeHTTP(recorder, request)
-
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("expected status 200, got %d: %s", recorder.Code, recorder.Body.String())
 	}
@@ -180,12 +172,9 @@ func TestRefreshSuccess(t *testing.T) {
 func TestRefreshMethodNotAllowed(t *testing.T) {
 	fakeService := &fakeAuthService{}
 	handler := Refresh(fakeService)
-
 	request := httptest.NewRequest(http.MethodGet, "/api/auth/refresh", nil)
 	recorder := httptest.NewRecorder()
-
 	handler.ServeHTTP(recorder, request)
-
 	if recorder.Code != http.StatusMethodNotAllowed {
 		t.Fatalf("expected status 405, got %d", recorder.Code)
 	}
@@ -197,31 +186,25 @@ func TestRefreshMethodNotAllowed(t *testing.T) {
 func TestRefreshInvalidBody(t *testing.T) {
 	fakeService := &fakeAuthService{}
 	handler := Refresh(fakeService)
-
 	request := httptest.NewRequest(http.MethodPost, "/api/auth/refresh", strings.NewReader(`{"refresh_token":`))
 	request.Header.Set("Content-Type", "application/json")
 	recorder := httptest.NewRecorder()
-
 	handler.ServeHTTP(recorder, request)
-
 	if recorder.Code != http.StatusBadRequest {
 		t.Fatalf("expected status 400, got %d", recorder.Code)
 	}
 	if fakeService.refreshCalled {
-		t.Fatal("Refresh service should not be called for invalid JSON")
+		t.Fatal("Refresh should not be called for invalid JSON")
 	}
 }
 
 func TestRefreshEmptyToken(t *testing.T) {
 	fakeService := &fakeAuthService{refreshErr: errors.New("refresh token is required")}
 	handler := Refresh(fakeService)
-
 	request := httptest.NewRequest(http.MethodPost, "/api/auth/refresh", strings.NewReader(`{"refresh_token":""}`))
 	request.Header.Set("Content-Type", "application/json")
 	recorder := httptest.NewRecorder()
-
 	handler.ServeHTTP(recorder, request)
-
 	if recorder.Code != http.StatusUnauthorized {
 		t.Fatalf("expected status 401, got %d", recorder.Code)
 	}
@@ -233,25 +216,21 @@ func TestRefreshEmptyToken(t *testing.T) {
 func TestRefreshInvalidToken(t *testing.T) {
 	fakeService := &fakeAuthService{refreshErr: errors.New("invalid refresh token")}
 	handler := Refresh(fakeService)
-
 	request := httptest.NewRequest(http.MethodPost, "/api/auth/refresh", strings.NewReader(`{"refresh_token":"invalid-token"}`))
 	request.Header.Set("Content-Type", "application/json")
 	recorder := httptest.NewRecorder()
-
 	handler.ServeHTTP(recorder, request)
-
 	if recorder.Code != http.StatusUnauthorized {
 		t.Fatalf("expected status 401, got %d", recorder.Code)
 	}
 }
+
 func TestLogoutSuccess(t *testing.T) {
 	fakeService := &fakeAuthService{}
 	requestBody := `{"refresh_token":"refresh-token-123"}`
 	request := httptest.NewRequest(http.MethodPost, "/api/auth/logout", strings.NewReader(requestBody))
 	responseRecorder := httptest.NewRecorder()
-
 	Logout(fakeService).ServeHTTP(responseRecorder, request)
-
 	if responseRecorder.Code != http.StatusOK {
 		t.Fatalf("expected status 200, got %d", responseRecorder.Code)
 	}
@@ -267,9 +246,7 @@ func TestLogoutMethodNotAllowed(t *testing.T) {
 	fakeService := &fakeAuthService{}
 	request := httptest.NewRequest(http.MethodGet, "/api/auth/logout", nil)
 	responseRecorder := httptest.NewRecorder()
-
 	Logout(fakeService).ServeHTTP(responseRecorder, request)
-
 	if responseRecorder.Code != http.StatusMethodNotAllowed {
 		t.Fatalf("expected status 405, got %d", responseRecorder.Code)
 	}
@@ -282,9 +259,7 @@ func TestLogoutInvalidBody(t *testing.T) {
 	fakeService := &fakeAuthService{}
 	request := httptest.NewRequest(http.MethodPost, "/api/auth/logout", strings.NewReader("{invalid-json"))
 	responseRecorder := httptest.NewRecorder()
-
 	Logout(fakeService).ServeHTTP(responseRecorder, request)
-
 	if responseRecorder.Code != http.StatusBadRequest {
 		t.Fatalf("expected status 400, got %d", responseRecorder.Code)
 	}

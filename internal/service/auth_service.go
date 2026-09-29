@@ -9,6 +9,8 @@ import (
 	"BE_GKMI_NTC_GO/internal/repository"
 	"BE_GKMI_NTC_GO/internal/security"
 	"BE_GKMI_NTC_GO/internal/token"
+
+	"github.com/jackc/pgx/v5"
 )
 
 type AuthService struct {
@@ -26,13 +28,16 @@ func NewAuthService(userRepository repository.UserRepositoryInterface, refreshTo
 func (s *AuthService) Login(ctx context.Context, request model.LoginRequest) (*model.User, string, error) {
 	user, err := s.UserRepository.GetUserByUsername(ctx, request.Username)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, "", ErrInvalidCredentials
+		}
 		return nil, "", err
 	}
 	if !user.IsActive {
-		return nil, "", errors.New("user is inactive")
+		return nil, "", ErrInvalidCredentials
 	}
 	if !security.VerifyPassword(request.Password, user.PasswordHash) {
-		return nil, "", errors.New("invalid credentials")
+		return nil, "", ErrInvalidCredentials
 	}
 
 	refreshToken, err := token.GenerateRefreshToken()
@@ -59,17 +64,17 @@ func (s *AuthService) Login(ctx context.Context, request model.LoginRequest) (*m
 
 func (s *AuthService) Logout(ctx context.Context, refreshToken string) error {
 	if refreshToken == "" {
-		return errors.New("refresh token is required")
+		return ErrInvalidRefreshToken
 	}
 
 	tokenHash := token.HashRefreshToken(refreshToken)
 	storedToken, err := s.RefreshTokenRepository.GetByTokenHash(ctx, tokenHash)
 	if err != nil {
-		return errors.New("invalid refresh token")
+		return ErrInvalidRefreshToken
 	}
 
 	if storedToken.RevokedAt != nil {
-		return errors.New("refresh token has already been revoked")
+		return ErrInvalidRefreshToken
 	}
 
 	if err := s.RefreshTokenRepository.Revoke(ctx, tokenHash, time.Now()); err != nil {
@@ -81,21 +86,21 @@ func (s *AuthService) Logout(ctx context.Context, refreshToken string) error {
 
 func (s *AuthService) Refresh(ctx context.Context, refreshToken string) (*model.User, string, error) {
 	if refreshToken == "" {
-		return nil, "", errors.New("refresh token is required")
+		return nil, "", ErrInvalidRefreshToken
 	}
 
 	tokenHash := token.HashRefreshToken(refreshToken)
 	storedToken, err := s.RefreshTokenRepository.GetByTokenHash(ctx, tokenHash)
 	if err != nil {
-		return nil, "", errors.New("invalid refresh token")
+		return nil, "", ErrInvalidRefreshToken
 	}
 
 	if storedToken.RevokedAt != nil {
-		return nil, "", errors.New("refresh token has been revoked")
+		return nil, "", ErrInvalidRefreshToken
 	}
 
 	if !storedToken.ExpiresAt.After(time.Now()) {
-		return nil, "", errors.New("refresh token has expired")
+		return nil, "", ErrInvalidRefreshToken
 	}
 
 	user, err := s.UserRepository.GetUserByID(ctx, storedToken.UserID)
@@ -104,7 +109,7 @@ func (s *AuthService) Refresh(ctx context.Context, refreshToken string) (*model.
 	}
 
 	if !user.IsActive {
-		return nil, "", errors.New("user is inactive")
+		return nil, "", ErrInvalidRefreshToken
 	}
 
 	newRefreshToken, err := token.GenerateRefreshToken()

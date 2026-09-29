@@ -2,20 +2,22 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"BE_GKMI_NTC_GO/internal/model"
 	"BE_GKMI_NTC_GO/internal/response"
+	"BE_GKMI_NTC_GO/internal/service"
 	"BE_GKMI_NTC_GO/internal/token"
 )
 
 // Login godoc
-// @Summary Login user
-// @Description Authenticate user and generate access token and refresh token
+// @Summary Login
+// @Description Login menggunakan username dan password untuk mendapatkan access token dan refresh token
 // @Tags Auth
 // @Accept json
 // @Produce json
-// @Param request body model.LoginRequest true "Login credentials"
+// @Param request body model.LoginRequest true "Login request"
 // @Success 200 {object} map[string]string
 // @Failure 400 {object} map[string]string
 // @Failure 401 {object} map[string]string
@@ -36,7 +38,11 @@ func Login(authService AuthServiceInterface) http.Handler {
 
 		user, refreshToken, err := authService.Login(r.Context(), request)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusUnauthorized)
+			if errors.Is(err, service.ErrInvalidCredentials) {
+				response.Error(w, http.StatusUnauthorized, "Invalid credentials")
+				return
+			}
+			response.Error(w, http.StatusInternalServerError, "Internal server error")
 			return
 		}
 
@@ -56,11 +62,11 @@ func Login(authService AuthServiceInterface) http.Handler {
 
 // Refresh godoc
 // @Summary Refresh access token
-// @Description Rotate the refresh token and generate a new access token
+// @Description Generate a new access token using a refresh token
 // @Tags Auth
 // @Accept json
 // @Produce json
-// @Param request body model.RefreshTokenRequest true "Refresh token"
+// @Param request body model.RefreshTokenRequest true "Refresh token request"
 // @Success 200 {object} map[string]string
 // @Failure 400 {object} map[string]string
 // @Failure 401 {object} map[string]string
@@ -100,15 +106,16 @@ func Refresh(authService AuthServiceInterface) http.Handler {
 }
 
 // Logout godoc
-// @Summary Logout user
-// @Description Revoke the supplied refresh token
+// @Summary Logout
+// @Description Revoke refresh token
 // @Tags Auth
 // @Accept json
 // @Produce json
-// @Param request body model.RefreshTokenRequest true "Refresh token"
+// @Param request body model.RefreshTokenRequest true "Refresh token request"
 // @Success 200 {object} map[string]string
 // @Failure 400 {object} map[string]string
 // @Failure 401 {object} map[string]string
+// @Failure 500 {object} map[string]string
 // @Router /api/auth/logout [post]
 func Logout(authService AuthServiceInterface) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -134,22 +141,8 @@ func Logout(authService AuthServiceInterface) http.Handler {
 	})
 }
 
-// Me godoc
-// @Summary Get current user
-// @Description Get authenticated user information from the JWT access token
-// @Tags Auth
-// @Produce json
-// @Security BearerAuth
-// @Success 200 {object} map[string]interface{}
-// @Failure 401 {object} map[string]string
-// @Router /api/auth/me [get]
 func Me(userID int, username string, role string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-
 		response.JSON(w, http.StatusOK, map[string]interface{}{
 			"user_id":  userID,
 			"username": username,

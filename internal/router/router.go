@@ -12,6 +12,7 @@ import (
 
 func New(userRepository *repository.UserRepository, authService handler.AuthServiceInterface, jemaatRepository *repository.JemaatRepository, jemaatService handler.JemaatServiceInterface) http.Handler {
 	mux := http.NewServeMux()
+	mux.Handle("GET /{$}", http.RedirectHandler("/swagger/index.html", http.StatusFound))
 
 	mux.HandleFunc("/api/health", handler.Health)
 
